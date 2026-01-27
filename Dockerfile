@@ -4,6 +4,9 @@ FROM node:22
 RUN mkdir -p /home/node/.clawdbot /home/node/clawd \
     && chown -R node:node /home/node
 
+# Install clawdbot globally (as root)
+RUN npm install -g clawdbot
+
 # Switch to non-root user
 USER node
 WORKDIR /home/node
