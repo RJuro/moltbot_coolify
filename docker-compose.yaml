@@ -18,6 +18,7 @@ services:
     labels:
       - "traefik.enable=true"
       - "traefik.http.services.clawdbot.loadbalancer.server.port=18789"
+      - "caddy_ingress_network=coolify"
 
 volumes:
   clawdbot_state:
