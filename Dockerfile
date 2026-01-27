@@ -1,18 +1,15 @@
-FROM node:20-slim
-
-# Install curl for the install script
-RUN apt-get update && apt-get install -y curl && rm -rf /var/lib/apt/lists/*
+FROM node:22-slim
 
 # Create non-root user directories
 RUN mkdir -p /home/node/.clawdbot /home/node/clawd \
     && chown -R node:node /home/node
 
+# Install clawdbot globally
+RUN npm install -g clawdbot
+
 # Switch to non-root user
 USER node
 WORKDIR /home/node
-
-# Install clawdbot using official install script
-RUN curl -fsSL https://molt.bot/install.sh | bash
 
 # Copy entrypoint
 COPY --chown=node:node entrypoint.sh /home/node/entrypoint.sh
