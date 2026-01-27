@@ -1,5 +1,11 @@
 FROM node:22-slim
 
+# Install build dependencies for native modules
+RUN apt-get update && apt-get install -y \
+    build-essential \
+    python3 \
+    && rm -rf /var/lib/apt/lists/*
+
 # Create non-root user directories
 RUN mkdir -p /home/node/.clawdbot /home/node/clawd \
     && chown -R node:node /home/node
