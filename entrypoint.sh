@@ -61,8 +61,13 @@ NODE
   return 1
 }
 
-if [ -z "${CLAWDBOT_GATEWAY_TOKEN:-}" ]; then
-  echo "WARN: CLAWDBOT_GATEWAY_TOKEN is not set; external access may be blocked." >&2
+if [ -n "${CLAWDBOT_GATEWAY_PASSWORD:-}" ]; then
+  set_config gateway.auth.mode password || true
+elif [ -n "${CLAWDBOT_GATEWAY_TOKEN:-}" ]; then
+  # Backward-compatible token auth if a token is provided.
+  set_config gateway.auth.mode token || true
+else
+  echo "WARN: No gateway auth configured (set CLAWDBOT_GATEWAY_PASSWORD)." >&2
 fi
 
 # Configure gateway for container networking

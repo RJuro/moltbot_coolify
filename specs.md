@@ -19,7 +19,7 @@ Use a proper Docker image and run it as a container in Coolify. Avoid “manual 
 ## Coolify Runtime Requirements
 - **Port**: 18789
 - **Env vars** (example):
-  - `CLAWDBOT_GATEWAY_TOKEN` (required when binding off loopback)
+  - `CLAWDBOT_GATEWAY_PASSWORD` (required for password auth)
   - Provider keys (e.g., `ANTHROPIC_API_KEY` or `OPENAI_API_KEY`)
 - **Binding**: Use `gateway.mode=local` and bind to `lan` when serving outside the container.
 
@@ -37,7 +37,7 @@ services:
     ports:
       - "18789:18789"
     environment:
-      - CLAWDBOT_GATEWAY_TOKEN=${CLAWDBOT_GATEWAY_TOKEN}
+      - CLAWDBOT_GATEWAY_PASSWORD=${CLAWDBOT_GATEWAY_PASSWORD}
     volumes:
       - clawdbot_state:/home/node/.clawdbot
       - clawdbot_workspace:/home/node/clawd
@@ -56,7 +56,7 @@ services:
       - "lan"
       - "--skip-skills"
     environment:
-      - CLAWDBOT_GATEWAY_TOKEN=${CLAWDBOT_GATEWAY_TOKEN}
+      - CLAWDBOT_GATEWAY_PASSWORD=${CLAWDBOT_GATEWAY_PASSWORD}
     volumes:
       - clawdbot_state:/home/node/.clawdbot
       - clawdbot_workspace:/home/node/clawd

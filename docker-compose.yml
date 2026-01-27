@@ -4,7 +4,7 @@ services:
     expose:
       - "18789"
     environment:
-      - CLAWDBOT_GATEWAY_TOKEN=${CLAWDBOT_GATEWAY_TOKEN}
+      - CLAWDBOT_GATEWAY_PASSWORD=${CLAWDBOT_GATEWAY_PASSWORD}
       - CLAWDBOT_STATE_DIR=/home/node/.clawdbot
       - CLAWDBOT_WORKSPACE=/home/node/clawd
       - GOOGLE_API_KEY=${GOOGLE_API_KEY}

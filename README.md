@@ -17,7 +17,7 @@ Set these in Coolify's environment variables section:
 
 | Variable | Required | Description |
 |----------|----------|-------------|
-| `CLAWDBOT_GATEWAY_TOKEN` | Yes | Shared secret for gateway access. Generate with: `openssl rand -hex 32` |
+| `CLAWDBOT_GATEWAY_PASSWORD` | Yes | Password for gateway access. Generate with: `openssl rand -base64 32` |
 | `GOOGLE_API_KEY` | Yes* | Your Google AI API key from [AI Studio](https://aistudio.google.com/apikey) |
 | `ANTHROPIC_API_KEY` | Yes* | Your Anthropic API key (if using Claude instead of Gemini) |
 
