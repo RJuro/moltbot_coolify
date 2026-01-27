@@ -1,0 +1,16 @@
+services:
+  clawdbot-gateway:
+    build: .
+    ports:
+      - "18789:18789"
+    environment:
+      - CLAWDBOT_GATEWAY_TOKEN=${CLAWDBOT_GATEWAY_TOKEN}
+      - GOOGLE_API_KEY=${GOOGLE_API_KEY}
+    volumes:
+      - clawdbot_state:/home/node/.clawdbot
+      - clawdbot_workspace:/home/node/clawd
+    restart: unless-stopped
+
+volumes:
+  clawdbot_state:
+  clawdbot_workspace:
