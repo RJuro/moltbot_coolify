@@ -15,6 +15,6 @@ WORKDIR /home/node
 COPY --chown=node:node entrypoint.sh /home/node/entrypoint.sh
 RUN chmod +x /home/node/entrypoint.sh
 
-EXPOSE 18789
+EXPOSE 8080
 
 ENTRYPOINT ["/home/node/entrypoint.sh"]
