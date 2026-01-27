@@ -15,6 +15,9 @@ services:
     networks:
       - coolify
       - default
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.services.clawdbot.loadbalancer.server.port=18789"
 
 volumes:
   clawdbot_state:
