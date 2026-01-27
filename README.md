@@ -119,10 +119,11 @@ The `entrypoint.sh` in this repo sets this automatically, but if you have an exi
 
 Coolify auto-generates Caddy labels and may override your custom ones. The key is that `{{upstreams}}` without a port defaults to port 80, but Clawdbot uses port 18789.
 
-The `docker-compose.yaml` (and `docker-compose.yml`) includes this label to fix it:
+The `docker-compose.yaml` (and `docker-compose.yml`) includes these labels to fix it:
 ```yaml
 labels:
-  - "caddy_0.reverse_proxy={{upstreams 18789}}"
+  - "caddy_0.handle_path=/*"
+  - "caddy_0.handle_path.0_reverse_proxy={{upstreams 18789}}"
 ```
 
 **Cause 3: Container not on coolify network**
