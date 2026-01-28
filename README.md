@@ -57,7 +57,3 @@ If you get 502 errors:
 **503 Error**: Gateway process not running. Check logs with `docker logs <container>`.
 
 **Config lost**: Use **Redeploy**, not delete + recreate. Volumes persist across redeployments.
-
-## License
-
-MIT
