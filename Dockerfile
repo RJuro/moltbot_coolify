@@ -13,11 +13,16 @@ LABEL org.opencontainers.image.title="Moltbot Gateway"
 LABEL org.opencontainers.image.description="Personal AI Assistant - Gateway Service"
 LABEL org.opencontainers.image.source="https://github.com/moltbot/moltbot"
 
-# Install additional system dependencies:
+# Install system dependencies:
+#   git              - required by moltbot npm deps that reference git repos
+#   curl             - health checks
 #   python3-pip/venv - moltbot skills install Python packages at runtime
 #   jq/openssl       - config generation in entrypoint
-# (git, curl, ca-certificates are already in the full bookworm image)
 RUN apt-get update && apt-get install -y --no-install-recommends \
+    git \
+    curl \
+    openssl \
+    ca-certificates \
     python3-pip \
     python3-venv \
     jq \
