@@ -69,6 +69,29 @@ cat > "$CONFIG_FILE" <<EOF
   "web": {
     "enabled": true
   },
+  "channels": {
+    "telegram": {
+      "dmPolicy": "open",
+      "allowFrom": ["*"]
+    },
+    "whatsapp": {
+      "dmPolicy": "open",
+      "allowFrom": ["*"]
+    },
+    "discord": {
+      "groupPolicy": "open",
+      "dm": {
+        "enabled": true,
+        "policy": "open",
+        "allowFrom": ["*"]
+      },
+      "guilds": {
+        "*": {
+          "requireMention": false
+        }
+      }
+    }
+  },
   "agents": {
     "defaults": {
       "workspace": "/home/node/clawd",
