@@ -1,8 +1,10 @@
-# Moltbot / Clawdbot on Coolify
+# Moltbot on Coolify
 
 > **Personal template by [@RJuro](https://github.com/RJuro).** Assumes familiarity with Docker, Coolify, and command-line tools.
 
-Deploy the [Clawdbot](https://molt.bot) gateway on [Coolify](https://coolify.io) with persistent configuration, auto-generated auth, and API key management.
+Deploy the [Moltbot](https://molt.bot) gateway on [Coolify](https://coolify.io) with persistent configuration, auto-generated auth, and API key management.
+
+Uses the [`moltbot@beta`](https://www.npmjs.com/package/moltbot) npm package (the official release channel by the moltbot team). The project was formerly known as "clawdbot" — some env vars retain the `CLAWDBOT_` prefix for backward compatibility.
 
 ## Quick Start
 
@@ -11,7 +13,7 @@ Deploy the [Clawdbot](https://molt.bot) gateway on [Coolify](https://coolify.io)
 3. Set environment variables (see below)
 4. Deploy
 
-No manual `clawdbot setup` needed — the entrypoint auto-generates config and auth profiles from your environment variables.
+No manual setup step needed — the entrypoint auto-generates config and auth profiles from your environment variables.
 
 ## Environment Variables
 
@@ -44,7 +46,7 @@ If neither is set, a random token is auto-generated and printed in container log
 
 ## Architecture
 
-- **Single service**: `clawdbot-gateway` on port 18789
+- **Single service**: `moltbot-gateway` on port 18789
 - **Health check**: `curl http://localhost:18789/health` (30s interval, 60s startup grace)
 - **Proxy labels**: Both Traefik and Caddy labels included for Coolify compatibility
 - **Volumes**: Config persists across redeployments
@@ -53,8 +55,8 @@ If neither is set, a random token is auto-generated and printed in container log
 
 | Volume | Container Path | Purpose |
 |--------|---------------|---------|
-| `clawdbot_state` | `/home/node/.clawdbot` | Config, sessions, auth profiles |
-| `clawdbot_workspace` | `/home/node/clawd` | Workspace files |
+| `moltbot_state` | `/home/node/.clawdbot` | Config, sessions, auth profiles |
+| `moltbot_workspace` | `/home/node/clawd` | Workspace files |
 
 ## How It Works
 

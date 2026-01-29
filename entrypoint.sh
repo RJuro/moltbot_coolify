@@ -1,5 +1,5 @@
 #!/bin/bash
-# Clawdbot Gateway Entrypoint for Coolify
+# Moltbot Gateway Entrypoint for Coolify
 # Generates config and auth profiles from environment variables, then starts the gateway.
 set -e
 
@@ -140,4 +140,4 @@ fi
 [ -n "${DISCORD_BOT_TOKEN:-}" ] && echo "Discord bot token detected"
 
 # --- Start gateway ---
-exec clawdbot gateway --bind lan --port 18789 --allow-unconfigured
+exec moltbot gateway --bind lan --port 18789 --allow-unconfigured

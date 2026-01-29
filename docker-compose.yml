@@ -1,5 +1,5 @@
 services:
-  clawdbot-gateway:
+  moltbot-gateway:
     build: .
     expose:
       - "18789"
@@ -19,8 +19,8 @@ services:
       - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN:-}
       - DISCORD_BOT_TOKEN=${DISCORD_BOT_TOKEN:-}
     volumes:
-      - clawdbot_state:/home/node/.clawdbot
-      - clawdbot_workspace:/home/node/clawd
+      - moltbot_state:/home/node/.clawdbot
+      - moltbot_workspace:/home/node/clawd
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:18789/health"]
@@ -34,15 +34,15 @@ services:
     labels:
       # Traefik (Coolify default proxy)
       - "traefik.enable=true"
-      - "traefik.http.services.clawdbot.loadbalancer.server.port=18789"
+      - "traefik.http.services.moltbot.loadbalancer.server.port=18789"
       # Caddy (Coolify alternate proxy)
       - "caddy_0.handle_path=/*"
       - "caddy_0.handle_path.0_reverse_proxy={{upstreams 18789}}"
       - "caddy_ingress_network=coolify"
 
 volumes:
-  clawdbot_state:
-  clawdbot_workspace:
+  moltbot_state:
+  moltbot_workspace:
 
 networks:
   coolify:
