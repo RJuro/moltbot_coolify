@@ -1,33 +1,48 @@
 services:
-  clawdbot-gateway:
+  moltbot-gateway:
     build: .
     expose:
       - "18789"
     environment:
-      - CLAWDBOT_GATEWAY_PASSWORD=${CLAWDBOT_GATEWAY_PASSWORD}
+      # Gateway authentication (at least one required)
+      - CLAWDBOT_GATEWAY_PASSWORD=${CLAWDBOT_GATEWAY_PASSWORD:-}
+      - CLAWDBOT_GATEWAY_TOKEN=${CLAWDBOT_GATEWAY_TOKEN:-}
+      # Internal paths (usually no need to change)
       - CLAWDBOT_STATE_DIR=/home/node/.clawdbot
       - CLAWDBOT_WORKSPACE=/home/node/clawd
-      - GOOGLE_API_KEY=${GOOGLE_API_KEY}
-      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
+      # AI provider API keys (at least one required)
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-}
+      - GOOGLE_API_KEY=${GOOGLE_API_KEY:-}
+      - OPENAI_API_KEY=${OPENAI_API_KEY:-}
+      - OPENROUTER_API_KEY=${OPENROUTER_API_KEY:-}
+      # Channel integrations (optional)
+      - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN:-}
+      - DISCORD_BOT_TOKEN=${DISCORD_BOT_TOKEN:-}
     volumes:
-      - clawdbot_state:/home/node/.clawdbot
-      - clawdbot_workspace:/home/node/clawd
+      - moltbot_state:/home/node/.clawdbot
+      - moltbot_workspace:/home/node/clawd
     restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:18789/health"]
+      interval: 30s
+      timeout: 10s
+      start_period: 60s
+      retries: 3
     networks:
       - coolify
       - default
     labels:
+      # Traefik (Coolify default proxy)
       - "traefik.enable=true"
-      - "traefik.http.services.clawdbot.loadbalancer.server.port=18789"
+      - "traefik.http.services.moltbot.loadbalancer.server.port=18789"
+      # Caddy (Coolify alternate proxy)
       - "caddy_0.handle_path=/*"
       - "caddy_0.handle_path.0_reverse_proxy={{upstreams 18789}}"
-      # Optional: Add basic auth for gateway access (generate hash with: htpasswd -nbB admin yourpassword)
-      # - 'caddy_0.basicauth.admin=$2a$14$YOUR_BCRYPT_HASH_HERE'
       - "caddy_ingress_network=coolify"
 
 volumes:
-  clawdbot_state:
-  clawdbot_workspace:
+  moltbot_state:
+  moltbot_workspace:
 
 networks:
   coolify:

@@ -1,8 +1,10 @@
-# Clawdbot on Coolify
+# Moltbot on Coolify
 
-> **This is a personal template by [@RJuro](https://github.com/RJuro).** It assumes familiarity with Docker, Coolify, and command-line tools. If you're not comfortable debugging container networking issues, this setup may not be for you.
+> **Personal template by [@RJuro](https://github.com/RJuro).** Assumes familiarity with Docker, Coolify, and command-line tools.
 
-Deploy [Clawdbot](https://molt.bot) gateway on [Coolify](https://coolify.io) with persistent configuration.
+Deploy the [Moltbot](https://molt.bot) gateway on [Coolify](https://coolify.io) with persistent configuration, auto-generated auth, and API key management.
+
+Uses the [`moltbot@beta`](https://www.npmjs.com/package/moltbot) npm package (the official release channel by the moltbot team). The project was formerly known as "clawdbot" — some env vars retain the `CLAWDBOT_` prefix for backward compatibility.
 
 ## Quick Start
 
@@ -10,50 +12,69 @@ Deploy [Clawdbot](https://molt.bot) gateway on [Coolify](https://coolify.io) wit
 2. In Coolify: **Add Resource** → **Docker Compose** → point to your fork
 3. Set environment variables (see below)
 4. Deploy
-5. Run `clawdbot setup` in the container terminal
-6. Restart the container
+
+No manual setup step needed — the entrypoint auto-generates config and auth profiles from your environment variables.
 
 ## Environment Variables
 
+Set these in your Coolify resource settings.
+
+### Authentication (auto-generated if omitted)
+
 | Variable | Required | Description |
 |----------|----------|-------------|
-| `CLAWDBOT_GATEWAY_PASSWORD` | Yes | Gateway password. Generate: `openssl rand -base64 32` |
-| `GOOGLE_API_KEY` | Yes* | Google AI API key |
-| `ANTHROPIC_API_KEY` | Yes* | Anthropic API key |
+| `CLAWDBOT_GATEWAY_PASSWORD` | Recommended | Gateway password for Control UI access |
+| `CLAWDBOT_GATEWAY_TOKEN` | No | Token auth (alternative to password) |
 
-*At least one provider key required.
+If neither is set, a random token is auto-generated and printed in container logs.
 
-## First-Time Setup
+### AI Provider Keys (at least one required)
 
-After deployment, run setup once:
+| Variable | Provider |
+|----------|----------|
+| `ANTHROPIC_API_KEY` | Anthropic (Claude) |
+| `GOOGLE_API_KEY` | Google AI (Gemini) |
+| `OPENAI_API_KEY` | OpenAI (GPT) |
+| `OPENROUTER_API_KEY` | OpenRouter (multi-provider) |
 
-```bash
-# In Coolify terminal, or via SSH:
-docker exec -it <container_name> clawdbot setup
-```
+### Channel Integrations (optional)
 
-Then restart the container.
+| Variable | Channel |
+|----------|---------|
+| `TELEGRAM_BOT_TOKEN` | Telegram |
+| `DISCORD_BOT_TOKEN` | Discord |
+
+## Architecture
+
+- **Single service**: `moltbot-gateway` on port 18789
+- **Health check**: `curl http://localhost:18789/health` (30s interval, 60s startup grace)
+- **Proxy labels**: Both Traefik and Caddy labels included for Coolify compatibility
+- **Volumes**: Config persists across redeployments
 
 ## Volumes
 
-| Volume | Path | Purpose |
-|--------|------|---------|
-| `clawdbot_state` | `/home/node/.clawdbot` | Config and sessions |
-| `clawdbot_workspace` | `/home/node/clawd` | Workspace files |
+| Volume | Container Path | Purpose |
+|--------|---------------|---------|
+| `moltbot_state` | `/home/node/.clawdbot` | Config, sessions, auth profiles |
+| `moltbot_workspace` | `/home/node/clawd` | Workspace files |
 
-## Known Issues
+## How It Works
 
-**Gateway frontend access**: The bot/API works but the web UI may have access issues due to container networking or missing permissions. The `gateway.bind` is set to `lan` which should work, but Coolify's proxy configuration can be finicky.
-
-If you get 502 errors:
-- Verify the gateway is listening: `docker exec <container> curl localhost:18789/health`
-- Check that `gateway.bind` is set to `lan` (not `localhost`)
-- Ensure the container is on the `coolify` network
+The `entrypoint.sh` script:
+1. Writes `clawdbot.json` gateway config from environment variables
+2. Generates `auth-profiles.json` with any API keys provided
+3. Configures `gateway.bind=lan` so the gateway is reachable from Coolify's proxy network
+4. Starts the gateway with `--allow-unconfigured` as fallback
 
 ## Troubleshooting
 
-**502 Bad Gateway**: Gateway not reachable from proxy. Check network config and port labels.
+**502 Bad Gateway**: Gateway not reachable from proxy.
+- Check health: `docker exec <container> curl localhost:18789/health`
+- Verify the container is on the `coolify` network
+- Ensure `gateway.bind` is `lan` (handled automatically by entrypoint)
 
-**503 Error**: Gateway process not running. Check logs with `docker logs <container>`.
+**503 Error**: Gateway process crashed. Check logs: `docker logs <container>`
 
-**Config lost**: Use **Redeploy**, not delete + recreate. Volumes persist across redeployments.
+**Config lost after redeploy**: Use **Redeploy** in Coolify, not delete + recreate. Named volumes persist across redeployments.
+
+**No API keys warning**: Set at least one provider key (ANTHROPIC_API_KEY, GOOGLE_API_KEY, etc.) in Coolify environment variables.

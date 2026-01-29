@@ -1,78 +1,143 @@
 #!/bin/bash
-set -euo pipefail
+# Moltbot Gateway Entrypoint for Coolify
+# Generates config and auth profiles from environment variables, then starts the gateway.
+set -e
 
 CONFIG_DIR="/home/node/.clawdbot"
-CONFIG_FILES=(
-  "$CONFIG_DIR/clawdbot.json"
-  "$CONFIG_DIR/config.json"
-)
+CONFIG_FILE="$CONFIG_DIR/clawdbot.json"
 
 mkdir -p "$CONFIG_DIR"
 
-set_config() {
-  local key="$1"
-  local value="$2"
-
-  if clawdbot config set "$key" "$value" >/dev/null 2>&1; then
-    echo "Config set: $key=$value (via clawdbot config)"
-    return 0
-  fi
-
-  for cfg in "${CONFIG_FILES[@]}"; do
-    if [ -f "$cfg" ]; then
-      if node - "$cfg" "$key" "$value" <<'NODE'
-const fs = require("fs");
-const [file, key, raw] = process.argv.slice(2);
-let data;
-try {
-  data = JSON.parse(fs.readFileSync(file, "utf8"));
-} catch (err) {
-  process.exit(1);
-}
-
-const parts = key.split(".");
-let obj = data;
-for (let i = 0; i < parts.length - 1; i += 1) {
-  const part = parts[i];
-  if (!obj[part] || typeof obj[part] !== "object") obj[part] = {};
-  obj = obj[part];
-}
-
-let value = raw;
-if (/^-?\d+$/.test(raw)) {
-  value = Number(raw);
-} else if (raw === "true") {
-  value = true;
-} else if (raw === "false") {
-  value = false;
-}
-
-obj[parts[parts.length - 1]] = value;
-fs.writeFileSync(file, JSON.stringify(data, null, 2));
-NODE
-      then
-        echo "Config set: $key=$value (patched $cfg)"
-        return 0
-      fi
-    fi
-  done
-
-  echo "WARN: Unable to set $key (config not initialized yet)" >&2
-  return 1
-}
-
+# --- Gateway authentication ---
+# Password auth (preferred) or token auth
+AUTH_MODE="none"
+AUTH_EXTRA=""
 if [ -n "${CLAWDBOT_GATEWAY_PASSWORD:-}" ]; then
-  set_config gateway.auth.mode password || true
+  AUTH_MODE="password"
+  AUTH_EXTRA="\"password\": \"${CLAWDBOT_GATEWAY_PASSWORD}\""
 elif [ -n "${CLAWDBOT_GATEWAY_TOKEN:-}" ]; then
-  # Backward-compatible token auth if a token is provided.
-  set_config gateway.auth.mode token || true
+  AUTH_MODE="token"
+  AUTH_EXTRA="\"token\": \"${CLAWDBOT_GATEWAY_TOKEN}\""
 else
-  echo "WARN: No gateway auth configured (set CLAWDBOT_GATEWAY_PASSWORD)." >&2
+  # Auto-generate a token if nothing is set
+  CLAWDBOT_GATEWAY_TOKEN=$(openssl rand -hex 32)
+  export CLAWDBOT_GATEWAY_TOKEN
+  AUTH_MODE="token"
+  AUTH_EXTRA="\"token\": \"${CLAWDBOT_GATEWAY_TOKEN}\""
+  echo "============================================"
+  echo "  Auto-generated gateway token:"
+  echo "  $CLAWDBOT_GATEWAY_TOKEN"
+  echo "  Save this to access the Control UI!"
+  echo "============================================"
 fi
 
-# Configure gateway for container networking
-set_config gateway.bind lan || true
-set_config gateway.port 18789 || true
+# --- Trusted proxies (Docker/Coolify network gateways) ---
+DEFAULT_PROXIES="10.0.0.1,10.0.1.1,10.0.1.2,10.0.2.1,10.0.2.2,10.0.3.1,10.0.3.2,10.0.4.1,172.17.0.1,172.18.0.1,127.0.0.1"
+TRUSTED_PROXIES="${CLAWDBOT_TRUSTED_PROXIES:-$DEFAULT_PROXIES}"
+PROXIES_JSON=$(echo "$TRUSTED_PROXIES" | sed 's/,/", "/g' | sed 's/^/["/' | sed 's/$/"]/')
 
-# Start gateway
-exec clawdbot gateway --allow-unconfigured
+# --- Determine default model based on available API keys ---
+DEFAULT_MODEL="anthropic/claude-sonnet-4-5"
+if [ -n "${ANTHROPIC_API_KEY:-}" ]; then
+  DEFAULT_MODEL="anthropic/claude-sonnet-4-5"
+elif [ -n "${GOOGLE_API_KEY:-}" ]; then
+  DEFAULT_MODEL="google/gemini-2.5-pro"
+elif [ -n "${OPENAI_API_KEY:-}" ]; then
+  DEFAULT_MODEL="openai/gpt-4o"
+elif [ -n "${OPENROUTER_API_KEY:-}" ]; then
+  DEFAULT_MODEL="openrouter/anthropic/claude-sonnet-4"
+fi
+echo "Default model: $DEFAULT_MODEL"
+
+# --- Write gateway config ---
+# Always overwrite to ensure all fields are present and consistent with env vars.
+cat > "$CONFIG_FILE" <<EOF
+{
+  "gateway": {
+    "mode": "local",
+    "bind": "lan",
+    "port": 18789,
+    "auth": {
+      "mode": "${AUTH_MODE}",
+      ${AUTH_EXTRA}
+    },
+    "trustedProxies": ${PROXIES_JSON},
+    "controlUi": {
+      "allowInsecureAuth": true
+    }
+  },
+  "web": {
+    "enabled": true
+  },
+  "agents": {
+    "defaults": {
+      "workspace": "/home/node/clawd",
+      "model": {
+        "primary": "${DEFAULT_MODEL}"
+      }
+    }
+  }
+}
+EOF
+echo "Config written to $CONFIG_FILE"
+
+# --- Build auth-profiles.json for API keys ---
+AUTH_DIR="$CONFIG_DIR/agents/main/agent"
+mkdir -p "$AUTH_DIR"
+
+AUTH_JSON="{"
+FIRST=true
+
+if [ -n "${ANTHROPIC_API_KEY:-}" ]; then
+  [ "$FIRST" = false ] && AUTH_JSON="$AUTH_JSON,"
+  AUTH_JSON="$AUTH_JSON\"anthropic:api\":{\"provider\":\"anthropic\",\"mode\":\"api_key\",\"apiKey\":\"$ANTHROPIC_API_KEY\"}"
+  echo "Added Anthropic API key"
+  FIRST=false
+fi
+
+if [ -n "${GOOGLE_API_KEY:-}" ]; then
+  [ "$FIRST" = false ] && AUTH_JSON="$AUTH_JSON,"
+  AUTH_JSON="$AUTH_JSON\"google:api\":{\"provider\":\"google\",\"mode\":\"api_key\",\"apiKey\":\"$GOOGLE_API_KEY\"}"
+  echo "Added Google API key"
+  FIRST=false
+fi
+
+if [ -n "${OPENAI_API_KEY:-}" ]; then
+  [ "$FIRST" = false ] && AUTH_JSON="$AUTH_JSON,"
+  AUTH_JSON="$AUTH_JSON\"openai:api\":{\"provider\":\"openai\",\"mode\":\"api_key\",\"apiKey\":\"$OPENAI_API_KEY\"}"
+  echo "Added OpenAI API key"
+  FIRST=false
+fi
+
+if [ -n "${OPENROUTER_API_KEY:-}" ]; then
+  [ "$FIRST" = false ] && AUTH_JSON="$AUTH_JSON,"
+  AUTH_JSON="$AUTH_JSON\"openrouter:api\":{\"provider\":\"openrouter\",\"mode\":\"api_key\",\"apiKey\":\"$OPENROUTER_API_KEY\"}"
+  echo "Added OpenRouter API key"
+  FIRST=false
+fi
+
+AUTH_JSON="$AUTH_JSON}"
+
+if [ "$FIRST" = false ]; then
+  echo "$AUTH_JSON" > "$AUTH_DIR/auth-profiles.json"
+  echo "Auth profiles written to $AUTH_DIR/auth-profiles.json"
+else
+  echo ""
+  echo "=========================================="
+  echo "WARNING: No API keys configured!"
+  echo "=========================================="
+  echo "Add one of these environment variables in Coolify:"
+  echo "  - ANTHROPIC_API_KEY"
+  echo "  - GOOGLE_API_KEY"
+  echo "  - OPENAI_API_KEY"
+  echo "  - OPENROUTER_API_KEY"
+  echo "=========================================="
+  echo ""
+fi
+
+# --- Log channel tokens ---
+[ -n "${TELEGRAM_BOT_TOKEN:-}" ] && echo "Telegram bot token detected"
+[ -n "${DISCORD_BOT_TOKEN:-}" ] && echo "Discord bot token detected"
+
+# --- Start gateway ---
+exec moltbot gateway --bind lan --port 18789 --allow-unconfigured
