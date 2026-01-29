@@ -5,22 +5,22 @@
 # The beta tag tracks the active development channel — the @latest tag
 # on npm is currently a placeholder and should NOT be used.
 
-FROM node:22-bookworm-slim
+# Use full bookworm (not slim) — matches the official moltbot Dockerfile.
+# The slim variant strips Python, which breaks moltbot's skills system.
+FROM node:22-bookworm
 
 LABEL org.opencontainers.image.title="Moltbot Gateway"
 LABEL org.opencontainers.image.description="Personal AI Assistant - Gateway Service"
 LABEL org.opencontainers.image.source="https://github.com/moltbot/moltbot"
 
-# Install system dependencies:
-#   git        - required by moltbot npm dependencies that reference git repos
-#   curl       - health checks
-#   jq/openssl - config generation in entrypoint
+# Install additional system dependencies:
+#   python3-pip/venv - moltbot skills install Python packages at runtime
+#   jq/openssl       - config generation in entrypoint
+# (git, curl, ca-certificates are already in the full bookworm image)
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    git \
-    curl \
+    python3-pip \
+    python3-venv \
     jq \
-    openssl \
-    ca-certificates \
     && rm -rf /var/lib/apt/lists/*
 
 # Create non-root user directories for config and workspace persistence
@@ -42,6 +42,10 @@ RUN chmod +x /home/node/entrypoint.sh
 ENV NODE_ENV=production
 ENV CLAWDBOT_STATE_DIR=/home/node/.clawdbot
 ENV CLAWDBOT_WORKSPACE=/home/node/clawd
+# Allow pip installs without venv (Debian PEP 668 restriction).
+# Running as non-root 'node' user, pip auto-installs to ~/.local.
+ENV PIP_BREAK_SYSTEM_PACKAGES=1
+ENV PATH="/home/node/.local/bin:${PATH}"
 
 EXPOSE 18789
 
