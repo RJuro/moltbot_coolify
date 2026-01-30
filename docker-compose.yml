@@ -4,12 +4,9 @@ services:
     expose:
       - "18789"
     environment:
-      # Gateway authentication (at least one required)
-      # Supports both OPENCLAW_ and legacy CLAWDBOT_ prefixes (entrypoint handles fallback)
+      # Gateway authentication (set OPENCLAW_GATEWAY_PASSWORD in Coolify env vars)
       - OPENCLAW_GATEWAY_PASSWORD=${OPENCLAW_GATEWAY_PASSWORD}
       - OPENCLAW_GATEWAY_TOKEN=${OPENCLAW_GATEWAY_TOKEN}
-      - CLAWDBOT_GATEWAY_PASSWORD=${CLAWDBOT_GATEWAY_PASSWORD}
-      - CLAWDBOT_GATEWAY_TOKEN=${CLAWDBOT_GATEWAY_TOKEN}
       # Internal paths
       - OPENCLAW_STATE_DIR=/home/node/.openclaw
       # AI provider API keys (at least one required)
@@ -20,8 +17,7 @@ services:
       # Channel integrations (optional)
       - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN}
       - DISCORD_BOT_TOKEN=${DISCORD_BOT_TOKEN}
-      # Agent safeguards (prevent runaway token usage)
-      # Defaults are handled in entrypoint.sh, not here (Coolify doesn't support :- syntax)
+      # Agent safeguards (defaults in entrypoint.sh: errors=2, calls=15, pruning=adaptive)
       - MOLTBOT_MAX_TOOL_ERRORS=${MOLTBOT_MAX_TOOL_ERRORS}
       - MOLTBOT_MAX_TOOL_CALLS=${MOLTBOT_MAX_TOOL_CALLS}
       - MOLTBOT_CONTEXT_PRUNING=${MOLTBOT_CONTEXT_PRUNING}
