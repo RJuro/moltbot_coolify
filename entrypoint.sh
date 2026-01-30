@@ -57,10 +57,9 @@ echo "Default model: $DEFAULT_MODEL"
 
 # --- Agent safeguards (opt-in) ---
 # Only write optional settings when explicitly provided via env vars.
-if [ -n "${MOLTBOT_CONTEXT_PRUNING:-}" ] || [ -n "${MOLTBOT_CONTEXT_TOKENS:-}" ] || \
+if [ -n "${MOLTBOT_CONTEXT_TOKENS:-}" ] || \
    [ -n "${MOLTBOT_COMPACTION_MODE:-}" ] || [ -n "${MOLTBOT_SESSION_IDLE_MINUTES:-}" ]; then
   echo "Agent safeguards (opt-in):"
-  [ -n "${MOLTBOT_CONTEXT_PRUNING:-}" ] && echo "  contextPruning=$MOLTBOT_CONTEXT_PRUNING"
   [ -n "${MOLTBOT_CONTEXT_TOKENS:-}" ] && echo "  contextTokens=$MOLTBOT_CONTEXT_TOKENS"
   [ -n "${MOLTBOT_COMPACTION_MODE:-}" ] && echo "  compaction=$MOLTBOT_COMPACTION_MODE"
   [ -n "${MOLTBOT_SESSION_IDLE_MINUTES:-}" ] && echo "  session idleMinutes=$MOLTBOT_SESSION_IDLE_MINUTES"
@@ -140,10 +139,6 @@ fi
 if [ -n "${MOLTBOT_CONTEXT_TOKENS:-}" ]; then
   MANAGED_CONFIG=$(echo "$MANAGED_CONFIG" | jq --argjson val "$MOLTBOT_CONTEXT_TOKENS" \
     '.agents.defaults.contextTokens = $val')
-fi
-if [ -n "${MOLTBOT_CONTEXT_PRUNING:-}" ]; then
-  MANAGED_CONFIG=$(echo "$MANAGED_CONFIG" | jq --arg val "$MOLTBOT_CONTEXT_PRUNING" \
-    '.agents.defaults.contextPruning = { "mode": $val }')
 fi
 if [ -n "${MOLTBOT_COMPACTION_MODE:-}" ]; then
   MANAGED_CONFIG=$(echo "$MANAGED_CONFIG" | jq --arg val "$MOLTBOT_COMPACTION_MODE" \
