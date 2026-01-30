@@ -22,18 +22,14 @@ GW_PASSWORD="${OPENCLAW_GATEWAY_PASSWORD:-${CLAWDBOT_GATEWAY_PASSWORD:-}}"
 GW_TOKEN="${OPENCLAW_GATEWAY_TOKEN:-${CLAWDBOT_GATEWAY_TOKEN:-}}"
 
 AUTH_MODE="none"
-AUTH_EXTRA=""
 if [ -n "${GW_PASSWORD}" ]; then
   AUTH_MODE="password"
-  AUTH_EXTRA="\"password\": \"${GW_PASSWORD}\""
 elif [ -n "${GW_TOKEN}" ]; then
   AUTH_MODE="token"
-  AUTH_EXTRA="\"token\": \"${GW_TOKEN}\""
 else
   # Auto-generate a token if nothing is set
   GW_TOKEN=$(openssl rand -hex 32)
   AUTH_MODE="token"
-  AUTH_EXTRA="\"token\": \"${GW_TOKEN}\""
   echo "============================================"
   echo "  Auto-generated gateway token:"
   echo "  $GW_TOKEN"
@@ -81,8 +77,7 @@ MANAGED_CONFIG=$(cat <<JSONEOF
     "bind": "lan",
     "port": 18789,
     "auth": {
-      "mode": "${AUTH_MODE}",
-      ${AUTH_EXTRA}
+      "mode": "${AUTH_MODE}"
     },
     "trustedProxies": ${PROXIES_JSON},
     "controlUi": {
@@ -104,6 +99,15 @@ MANAGED_CONFIG=$(cat <<JSONEOF
 JSONEOF
 )
 
+# Inject auth credential via jq (safe escaping for special chars in passwords/tokens)
+if [ "$AUTH_MODE" = "password" ]; then
+  MANAGED_CONFIG=$(echo "$MANAGED_CONFIG" | jq --arg val "$GW_PASSWORD" \
+    '.gateway.auth.password = $val')
+elif [ "$AUTH_MODE" = "token" ]; then
+  MANAGED_CONFIG=$(echo "$MANAGED_CONFIG" | jq --arg val "$GW_TOKEN" \
+    '.gateway.auth.token = $val')
+fi
+
 # Add channels config (only if tokens are set)
 if [ -n "${TELEGRAM_BOT_TOKEN:-}" ]; then
   MANAGED_CONFIG=$(echo "$MANAGED_CONFIG" | jq --arg token "$TELEGRAM_BOT_TOKEN" \
@@ -119,6 +123,18 @@ fi
 if [ -n "${DISCORD_BOT_TOKEN:-}" ]; then
   MANAGED_CONFIG=$(echo "$MANAGED_CONFIG" | jq --arg token "$DISCORD_BOT_TOKEN" \
     '.channels.discord = { "botToken": $token }')
+fi
+if [ "${WHATSAPP_ENABLED:-}" = "true" ]; then
+  MANAGED_CONFIG=$(echo "$MANAGED_CONFIG" | jq \
+    '.channels.whatsapp = { "enabled": true }')
+fi
+if [ -n "${SLACK_BOT_TOKEN:-}" ]; then
+  MANAGED_CONFIG=$(echo "$MANAGED_CONFIG" | jq --arg token "$SLACK_BOT_TOKEN" \
+    '.channels.slack = { "botToken": $token }')
+  if [ -n "${SLACK_APP_TOKEN:-}" ]; then
+    MANAGED_CONFIG=$(echo "$MANAGED_CONFIG" | jq --arg token "$SLACK_APP_TOKEN" \
+      '.channels.slack.appToken = $token')
+  fi
 fi
 
 if [ -n "${MOLTBOT_CONTEXT_TOKENS:-}" ]; then
@@ -238,6 +254,8 @@ fi
 # --- Log channel tokens ---
 [ -n "${TELEGRAM_BOT_TOKEN:-}" ] && echo "Telegram bot token detected"
 [ -n "${DISCORD_BOT_TOKEN:-}" ] && echo "Discord bot token detected"
+[ "${WHATSAPP_ENABLED:-}" = "true" ] && echo "WhatsApp enabled (pair via Control UI QR code)"
+[ -n "${SLACK_BOT_TOKEN:-}" ] && echo "Slack bot token detected"
 
 # --- Start gateway ---
 exec openclaw gateway --bind lan --port 18789 --allow-unconfigured

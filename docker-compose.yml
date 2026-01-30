@@ -20,12 +20,18 @@ services:
       # Channel integrations (optional)
       - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN}
       - DISCORD_BOT_TOKEN=${DISCORD_BOT_TOKEN}
+      - WHATSAPP_ENABLED=${WHATSAPP_ENABLED}
+      - SLACK_BOT_TOKEN=${SLACK_BOT_TOKEN}
+      - SLACK_APP_TOKEN=${SLACK_APP_TOKEN}
       # Agent safeguards (opt-in)
       # Optional: set these only if you want to override OpenClaw defaults
       - MOLTBOT_CONTEXT_TOKENS=${MOLTBOT_CONTEXT_TOKENS}
       - MOLTBOT_CONTEXT_PRUNING=${MOLTBOT_CONTEXT_PRUNING}
       - MOLTBOT_COMPACTION_MODE=${MOLTBOT_COMPACTION_MODE}
       - MOLTBOT_SESSION_IDLE_MINUTES=${MOLTBOT_SESSION_IDLE_MINUTES}
+      # Backend services (auto-configured via internal Docker network)
+      - REDIS_URL=redis://redis:6379
+      - BROWSER_WS_ENDPOINT=ws://chrome:3000
     volumes:
       - openclaw_state:/home/node/.openclaw
       - openclaw_workspace:/home/node/.openclaw/workspace
@@ -40,6 +46,11 @@ services:
     networks:
       - coolify
       - default
+    depends_on:
+      redis:
+        condition: service_healthy
+      chrome:
+        condition: service_started
     labels:
       # Traefik (Coolify default proxy)
       - "traefik.enable=true"
@@ -49,9 +60,35 @@ services:
       - "caddy_0.handle_path.0_reverse_proxy={{upstreams 18789}}"
       - "caddy_ingress_network=coolify"
 
+  redis:
+    image: redis:7-alpine
+    volumes:
+      - redis_data:/data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - default
+
+  chrome:
+    image: browserless/chrome:latest
+    restart: unless-stopped
+    shm_size: '2gb'
+    environment:
+      # Max concurrent browser sessions
+      - MAX_CONCURRENT_SESSIONS=5
+      # Connection timeout (ms)
+      - CONNECTION_TIMEOUT=60000
+    networks:
+      - default
+
 volumes:
   openclaw_state:
   openclaw_workspace:
+  redis_data:
 
 networks:
   coolify:
