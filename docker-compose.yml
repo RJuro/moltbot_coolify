@@ -26,7 +26,6 @@ services:
       # Agent safeguards (opt-in)
       # Optional: set these only if you want to override OpenClaw defaults
       - MOLTBOT_CONTEXT_TOKENS=${MOLTBOT_CONTEXT_TOKENS}
-      - MOLTBOT_CONTEXT_PRUNING=${MOLTBOT_CONTEXT_PRUNING}
       - MOLTBOT_COMPACTION_MODE=${MOLTBOT_COMPACTION_MODE}
       - MOLTBOT_SESSION_IDLE_MINUTES=${MOLTBOT_SESSION_IDLE_MINUTES}
       # Backend services (auto-configured via internal Docker network)

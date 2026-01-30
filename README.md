@@ -57,15 +57,15 @@ These settings are optional overrides; OpenClaw defaults are used when unset.
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `MOLTBOT_CONTEXT_PRUNING` | *(unset)* | Prunes oversized tool outputs from context (not conversation). Modes vary by OpenClaw version (e.g., `adaptive`, `aggressive`, `cache-ttl`, or `off`) |
 | `MOLTBOT_CONTEXT_TOKENS` | *(unset)* | Hard cap on context window in tokens (e.g., `100000` for 100K). Prevents sessions from growing to 1M+ tokens |
 | `MOLTBOT_COMPACTION_MODE` | *(unset)* | Context compaction strategy — `safeguard` for adaptive chunking with progressive fallback and retries |
 | `MOLTBOT_SESSION_IDLE_MINUTES` | *(unset)* | Auto-reset session after N minutes of inactivity (e.g., `120`). Starts a fresh context on next message |
 
+> `MOLTBOT_CONTEXT_PRUNING` was removed — the `contextPruning` config key is deprecated in current OpenClaw versions and causes validation errors.
+
 > **Note on `MOLTBOT_*` variable names:** These are intentional backwards-compatible names from the moltbot era. OpenClaw's config system still reads them. If a future release adds `OPENCLAW_*` equivalents, this template will be updated — but the `MOLTBOT_*` names will continue to work.
 
 **What these protect against:**
-- **Context dragging**: Oversized tool outputs get carried forward on every turn, burning tokens. Override pruning mode if needed.
 - **Context overflow at 1M tokens**: Sessions grow until the model returns "prompt too large" errors. Set `CONTEXT_TOKENS=100000` to cap the window well below the model limit.
 - **Telegram polling storms**: Telegram config includes retry backoff (5s base, 2x multiplier, max 10 retries) to prevent tight reconnect loops.
 - **Stale sessions**: Without `SESSION_IDLE_MINUTES`, a session can accumulate days of history. Setting it to e.g. `120` resets after 2 hours idle.
@@ -168,7 +168,7 @@ For submitting this template to the official Coolify service templates:
 
 **Gateway crash-loops**: If a bad config change via chat bricks the bot, the entrypoint restores from `openclaw.json.bak` on next restart. Entrypoint-managed keys (auth, bind, port, safeguards) always override on merge, preventing lockouts.
 
-**High token costs**: Set `MOLTBOT_CONTEXT_TOKENS=100000` to cap context well below the model limit. If you need to adjust pruning, set `MOLTBOT_CONTEXT_PRUNING`. Use `/status` in chat to check current token usage.
+**High token costs**: Set `MOLTBOT_CONTEXT_TOKENS=100000` to cap context well below the model limit. Use `/status` in chat to check current token usage.
 
 **Redis connection issues**: The gateway connects to Redis via the internal Docker network. If Redis is down, check health with: `docker exec <redis-container> redis-cli ping`.
 
