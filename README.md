@@ -39,10 +39,17 @@ If neither is set, a random token is auto-generated and printed in container log
 
 ### Channel Integrations (optional)
 
-| Variable | Channel |
-|----------|---------|
-| `TELEGRAM_BOT_TOKEN` | Telegram |
-| `DISCORD_BOT_TOKEN` | Discord |
+| Variable | Channel | Notes |
+|----------|---------|-------|
+| `TELEGRAM_BOT_TOKEN` | Telegram | Get from [@BotFather](https://t.me/BotFather) |
+| `DISCORD_BOT_TOKEN` | Discord | From Discord Developer Portal |
+| `WHATSAPP_ENABLED` | WhatsApp | Set to `true` to enable; pair via QR code in Control UI |
+| `SLACK_BOT_TOKEN` | Slack | Bot token (`xoxb-...`) from Slack app config |
+| `SLACK_APP_TOKEN` | Slack | App-level token (`xapp-...`) for Socket Mode |
+
+**WhatsApp**: The most popular channel integration. Set `WHATSAPP_ENABLED=true` and pair your device using the QR code shown in the OpenClaw Control UI. No additional API keys needed.
+
+**Slack**: Requires both `SLACK_BOT_TOKEN` and `SLACK_APP_TOKEN`. Create a Slack app at [api.slack.com/apps](https://api.slack.com/apps), enable Socket Mode, and add the Bot Token Scopes your use case needs.
 
 ### Token Usage Safeguards
 
@@ -55,6 +62,8 @@ These settings are optional overrides; OpenClaw defaults are used when unset.
 | `MOLTBOT_COMPACTION_MODE` | *(unset)* | Context compaction strategy — `safeguard` for adaptive chunking with progressive fallback and retries |
 | `MOLTBOT_SESSION_IDLE_MINUTES` | *(unset)* | Auto-reset session after N minutes of inactivity (e.g., `120`). Starts a fresh context on next message |
 
+> **Note on `MOLTBOT_*` variable names:** These are intentional backwards-compatible names from the moltbot era. OpenClaw's config system still reads them. If a future release adds `OPENCLAW_*` equivalents, this template will be updated — but the `MOLTBOT_*` names will continue to work.
+
 **What these protect against:**
 - **Context dragging**: Oversized tool outputs get carried forward on every turn, burning tokens. Override pruning mode if needed.
 - **Context overflow at 1M tokens**: Sessions grow until the model returns "prompt too large" errors. Set `CONTEXT_TOKENS=100000` to cap the window well below the model limit.
@@ -65,11 +74,48 @@ These settings are optional overrides; OpenClaw defaults are used when unset.
 
 ## Architecture
 
-- **Single service**: `openclaw-gateway` on port 18789
-- **Health check**: `curl http://localhost:18789/health` (30s interval, 60s startup grace)
+```
+┌─────────────────────────────────────────────────┐
+│  Coolify Host                                   │
+│                                                 │
+│  ┌───────────────────────────────────────────┐  │
+│  │  openclaw-gateway  (port 18789)           │  │
+│  │  ├── Control UI + API                     │  │
+│  │  ├── Telegram / Discord / WhatsApp / Slack│  │
+│  │  └── AI provider connections              │  │
+│  └──────┬──────────────┬─────────────────────┘  │
+│         │              │                        │
+│  ┌──────▼──────┐ ┌─────▼──────────┐            │
+│  │  redis      │ │  chrome         │            │
+│  │  (7-alpine) │ │  (browserless)  │            │
+│  │  port 6379  │ │  port 3000      │            │
+│  └─────────────┘ └─────────────────┘            │
+└─────────────────────────────────────────────────┘
+```
+
+- **Three services**: `openclaw-gateway` (port 18789), `redis` (session/cache), `chrome` (headless browser)
+- **Health checks**: Gateway HTTP `/health` (30s interval, 60s startup grace); Redis `redis-cli ping` (10s interval)
 - **Proxy labels**: Both Traefik and Caddy labels included for Coolify compatibility
-- **Volumes**: Config persists across redeployments
+- **Volumes**: Config and Redis data persist across redeployments
 - **Graceful shutdown**: 30s stop grace period prevents AbortError crashes
+- **Service dependencies**: Gateway waits for Redis (healthy) and Chrome (started) before launching
+
+## Services
+
+### Redis (`redis:7-alpine`)
+
+Provides session and cache management. More robust than file-based storage for multi-user deployments. Auto-connected to the gateway via `REDIS_URL=redis://redis:6379`.
+
+- Data persisted in the `redis_data` volume
+- Health checked every 10s via `redis-cli ping`
+
+### Headless Chrome (`browserless/chrome`)
+
+Enables browser automation, screenshots, and web scraping skills. Connected via `BROWSER_WS_ENDPOINT=ws://chrome:3000`.
+
+- Limited to 5 concurrent sessions (`MAX_CONCURRENT_SESSIONS`)
+- 60-second connection timeout
+- Runs on the internal Docker network only (not exposed externally)
 
 ## Volumes
 
@@ -77,6 +123,7 @@ These settings are optional overrides; OpenClaw defaults are used when unset.
 |--------|---------------|---------|
 | `openclaw_state` | `/home/node/.openclaw` | Config, sessions, auth profiles |
 | `openclaw_workspace` | `/home/node/.openclaw/workspace` | Workspace files |
+| `redis_data` | `/data` (redis container) | Redis persistence |
 
 ## How It Works
 
@@ -84,8 +131,25 @@ The `entrypoint.sh` script:
 1. Migrates legacy `clawdbot.json` → `openclaw.json` if needed
 2. Deep-merges gateway config from env vars into existing config (preserves UI settings)
 3. Merges API key profiles (preserves UI-configured keys)
-4. Configures `gateway.bind=lan` so the gateway is reachable from Coolify's proxy network
-5. Starts the gateway with `openclaw gateway --allow-unconfigured`
+4. Configures channel integrations (Telegram, Discord, WhatsApp, Slack)
+5. Configures `gateway.bind=lan` so the gateway is reachable from Coolify's proxy network
+6. Starts the gateway with `openclaw gateway --allow-unconfigured`
+
+## Coolify Submission
+
+For submitting this template to the official Coolify service templates:
+
+### Required
+
+- **Logo file**: SVG preferred, placed in this repo for the Coolify UI to display
+- **Base64 compose**: Convert `docker-compose.yml` to base64 for inclusion in `templates/service-templates.json`:
+  ```bash
+  base64 -w 0 docker-compose.yml
+  ```
+
+### Optional (skip for v1)
+
+- **Sandbox mode**: Isolated tool execution requires Docker socket access — complex to configure securely in a shared Coolify environment. Consider for a future version.
 
 ## Troubleshooting
 
@@ -105,5 +169,9 @@ The `entrypoint.sh` script:
 **Gateway crash-loops**: If a bad config change via chat bricks the bot, the entrypoint restores from `openclaw.json.bak` on next restart. Entrypoint-managed keys (auth, bind, port, safeguards) always override on merge, preventing lockouts.
 
 **High token costs**: Set `MOLTBOT_CONTEXT_TOKENS=100000` to cap context well below the model limit. If you need to adjust pruning, set `MOLTBOT_CONTEXT_PRUNING`. Use `/status` in chat to check current token usage.
+
+**Redis connection issues**: The gateway connects to Redis via the internal Docker network. If Redis fails, the gateway will fall back to file-based storage. Check Redis health: `docker exec <redis-container> redis-cli ping`.
+
+**Chrome/browser issues**: Headless Chrome runs on the internal network only. If browser skills fail, check Chrome container logs: `docker logs <chrome-container>`. The `MAX_CONCURRENT_SESSIONS=5` limit prevents resource exhaustion.
 
 **Migration from moltbot/clawdbot**: The entrypoint auto-migrates `clawdbot.json` → `openclaw.json`. Legacy `CLAWDBOT_` env var prefixes are still supported. If upgrading an existing deployment, your existing `moltbot_state` volume data will be picked up — just update the volume mount path in Coolify to `/home/node/.openclaw`.
