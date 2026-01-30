@@ -106,6 +106,12 @@ The `entrypoint.sh` script:
 
 **503 Error**: Gateway process crashed. Check logs: `docker logs <container>`
 
-**Config lost after redeploy**: Use **Redeploy** in Coolify, not delete + recreate. Named volumes persist across redeployments.
+**Config lost after redeploy**: Use **Redeploy** in Coolify, not delete + recreate. Named volumes persist across redeployments. Config is backed up to `clawdbot.json.bak` before each merge.
 
 **No API keys warning**: Set at least one provider key (ANTHROPIC_API_KEY, GOOGLE_API_KEY, etc.) in Coolify environment variables.
+
+**Telegram disconnects / timeouts**: Node 22's built-in fetch has IPv6/IPv4 DNS issues. The Dockerfile sets `NODE_OPTIONS="--dns-result-order=ipv4first"` as mitigation. If problems persist, the container will auto-restart (`restart: unless-stopped`) and Telegram polling retries with exponential backoff.
+
+**Gateway crash-loops**: If a bad config change via chat bricks the bot, the entrypoint restores from `clawdbot.json.bak` on next restart. Entrypoint-managed keys (auth, bind, port, safeguards) always override on merge, preventing lockouts.
+
+**High token costs**: Set `MOLTBOT_CONTEXT_TOKENS=100000` to cap context well below the model limit. The default `contextPruning=adaptive` trims oversized tool outputs. Use `/status` in chat to check current token usage.

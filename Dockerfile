@@ -47,6 +47,10 @@ RUN chmod +x /home/node/entrypoint.sh
 ENV NODE_ENV=production
 ENV CLAWDBOT_STATE_DIR=/home/node/.clawdbot
 ENV CLAWDBOT_WORKSPACE=/home/node/clawd
+# Fix Node 22 undici DNS resolution issues with Telegram API and other services.
+# Node 22's built-in fetch (undici) has IPv6/IPv4 issues causing timeouts and crashes.
+# See: github.com/moltbot/moltbot/issues/2436, /issues/3005
+ENV NODE_OPTIONS="--dns-result-order=ipv4first"
 # Allow pip installs without venv (Debian PEP 668 restriction).
 # Running as non-root 'node' user, pip auto-installs to ~/.local.
 ENV PIP_BREAK_SYSTEM_PACKAGES=1

@@ -31,6 +31,7 @@ services:
       - moltbot_state:/home/node/.clawdbot
       - moltbot_workspace:/home/node/clawd
     restart: unless-stopped
+    stop_grace_period: 30s
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:18789/health"]
       interval: 30s
