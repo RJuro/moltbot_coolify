@@ -1,32 +1,42 @@
 #!/bin/bash
-# Moltbot Gateway Entrypoint for Coolify
+# OpenClaw Gateway Entrypoint for Coolify
 # Generates config and auth profiles from environment variables, then starts the gateway.
+# Formerly clawdbot → moltbot → openclaw. Supports legacy env var prefixes.
 set -e
 
-CONFIG_DIR="/home/node/.clawdbot"
-CONFIG_FILE="$CONFIG_DIR/clawdbot.json"
+CONFIG_DIR="/home/node/.openclaw"
+CONFIG_FILE="$CONFIG_DIR/openclaw.json"
+LEGACY_CONFIG="$CONFIG_DIR/clawdbot.json"
 
 mkdir -p "$CONFIG_DIR"
 
+# --- Migrate legacy config if present ---
+if [ ! -f "$CONFIG_FILE" ] && [ -f "$LEGACY_CONFIG" ]; then
+  cp "$LEGACY_CONFIG" "$CONFIG_FILE"
+  echo "Migrated legacy config: clawdbot.json → openclaw.json"
+fi
+
 # --- Gateway authentication ---
-# Password auth (preferred) or token auth
+# Support both OPENCLAW_ and legacy CLAWDBOT_ env var prefixes.
+GW_PASSWORD="${OPENCLAW_GATEWAY_PASSWORD:-${CLAWDBOT_GATEWAY_PASSWORD:-}}"
+GW_TOKEN="${OPENCLAW_GATEWAY_TOKEN:-${CLAWDBOT_GATEWAY_TOKEN:-}}"
+
 AUTH_MODE="none"
 AUTH_EXTRA=""
-if [ -n "${CLAWDBOT_GATEWAY_PASSWORD:-}" ]; then
+if [ -n "${GW_PASSWORD}" ]; then
   AUTH_MODE="password"
-  AUTH_EXTRA="\"password\": \"${CLAWDBOT_GATEWAY_PASSWORD}\""
-elif [ -n "${CLAWDBOT_GATEWAY_TOKEN:-}" ]; then
+  AUTH_EXTRA="\"password\": \"${GW_PASSWORD}\""
+elif [ -n "${GW_TOKEN}" ]; then
   AUTH_MODE="token"
-  AUTH_EXTRA="\"token\": \"${CLAWDBOT_GATEWAY_TOKEN}\""
+  AUTH_EXTRA="\"token\": \"${GW_TOKEN}\""
 else
   # Auto-generate a token if nothing is set
-  CLAWDBOT_GATEWAY_TOKEN=$(openssl rand -hex 32)
-  export CLAWDBOT_GATEWAY_TOKEN
+  GW_TOKEN=$(openssl rand -hex 32)
   AUTH_MODE="token"
-  AUTH_EXTRA="\"token\": \"${CLAWDBOT_GATEWAY_TOKEN}\""
+  AUTH_EXTRA="\"token\": \"${GW_TOKEN}\""
   echo "============================================"
   echo "  Auto-generated gateway token:"
-  echo "  $CLAWDBOT_GATEWAY_TOKEN"
+  echo "  $GW_TOKEN"
   echo "  Save this to access the Control UI!"
   echo "============================================"
 fi
@@ -86,7 +96,7 @@ MANAGED_CONFIG=$(cat <<JSONEOF
   },
   "agents": {
     "defaults": {
-      "workspace": "/home/node/clawd",
+      "workspace": "/home/node/.openclaw/workspace",
       "model": {
         "primary": "${DEFAULT_MODEL}"
       },
@@ -229,4 +239,4 @@ fi
 [ -n "${DISCORD_BOT_TOKEN:-}" ] && echo "Discord bot token detected"
 
 # --- Start gateway ---
-exec moltbot gateway --bind lan --port 18789 --allow-unconfigured
+exec openclaw gateway --bind lan --port 18789 --allow-unconfigured
