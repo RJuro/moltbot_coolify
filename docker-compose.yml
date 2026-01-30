@@ -1,15 +1,15 @@
 services:
-  moltbot-gateway:
+  openclaw-gateway:
     build: .
     expose:
       - "18789"
     environment:
       # Gateway authentication (at least one required)
-      - CLAWDBOT_GATEWAY_PASSWORD=${CLAWDBOT_GATEWAY_PASSWORD:-}
-      - CLAWDBOT_GATEWAY_TOKEN=${CLAWDBOT_GATEWAY_TOKEN:-}
-      # Internal paths (usually no need to change)
-      - CLAWDBOT_STATE_DIR=/home/node/.clawdbot
-      - CLAWDBOT_WORKSPACE=/home/node/clawd
+      # Supports both OPENCLAW_ and legacy CLAWDBOT_ prefixes
+      - OPENCLAW_GATEWAY_PASSWORD=${OPENCLAW_GATEWAY_PASSWORD:-${CLAWDBOT_GATEWAY_PASSWORD:-}}
+      - OPENCLAW_GATEWAY_TOKEN=${OPENCLAW_GATEWAY_TOKEN:-${CLAWDBOT_GATEWAY_TOKEN:-}}
+      # Internal paths
+      - OPENCLAW_STATE_DIR=/home/node/.openclaw
       # AI provider API keys (at least one required)
       - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-}
       - GOOGLE_API_KEY=${GOOGLE_API_KEY:-}
@@ -22,14 +22,14 @@ services:
       - MOLTBOT_MAX_TOOL_ERRORS=${MOLTBOT_MAX_TOOL_ERRORS:-2}
       - MOLTBOT_MAX_TOOL_CALLS=${MOLTBOT_MAX_TOOL_CALLS:-15}
       - MOLTBOT_CONTEXT_PRUNING=${MOLTBOT_CONTEXT_PRUNING:-adaptive}
-      # Optional: set these only if you want to override moltbot defaults
+      # Optional: set these only if you want to override openclaw defaults
       - MOLTBOT_CONTEXT_TOKENS=${MOLTBOT_CONTEXT_TOKENS:-}
       - MOLTBOT_CONTEXT_MESSAGES=${MOLTBOT_CONTEXT_MESSAGES:-}
       - MOLTBOT_COMPACTION_MODE=${MOLTBOT_COMPACTION_MODE:-}
       - MOLTBOT_SESSION_IDLE_MINUTES=${MOLTBOT_SESSION_IDLE_MINUTES:-}
     volumes:
-      - moltbot_state:/home/node/.clawdbot
-      - moltbot_workspace:/home/node/clawd
+      - openclaw_state:/home/node/.openclaw
+      - openclaw_workspace:/home/node/.openclaw/workspace
     restart: unless-stopped
     stop_grace_period: 30s
     healthcheck:
@@ -44,15 +44,15 @@ services:
     labels:
       # Traefik (Coolify default proxy)
       - "traefik.enable=true"
-      - "traefik.http.services.moltbot.loadbalancer.server.port=18789"
+      - "traefik.http.services.openclaw.loadbalancer.server.port=18789"
       # Caddy (Coolify alternate proxy)
       - "caddy_0.handle_path=/*"
       - "caddy_0.handle_path.0_reverse_proxy={{upstreams 18789}}"
       - "caddy_ingress_network=coolify"
 
 volumes:
-  moltbot_state:
-  moltbot_workspace:
+  openclaw_state:
+  openclaw_workspace:
 
 networks:
   coolify:
