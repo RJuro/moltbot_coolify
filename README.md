@@ -44,24 +44,36 @@ If neither is set, a random token is auto-generated and printed in container log
 | `TELEGRAM_BOT_TOKEN` | Telegram |
 | `DISCORD_BOT_TOKEN` | Discord |
 
-### Token Usage Safeguards (optional)
+### Token Usage Safeguards
 
 These settings prevent runaway API costs from tool-call loops, context bloat, and polling issues.
+
+**Always-on defaults** (safe, don't affect bot memory):
 
 | Variable | Default | Description |
 |----------|---------|-------------|
 | `MOLTBOT_MAX_TOOL_ERRORS` | `3` | Abort after N consecutive identical tool errors (prevents infinite loop burns) |
 | `MOLTBOT_MAX_TOOL_CALLS` | `25` | Max tool invocations per agent turn (hard cap) |
-| `MOLTBOT_CONTEXT_MESSAGES` | *(unset)* | Max messages kept in session context — only set if you want to cap history (e.g., `50`) |
-| `MOLTBOT_COMPACTION_MODE` | *(unset)* | Context compaction strategy — set to `safeguard` for adaptive chunking with fallback |
+| `MOLTBOT_CONTEXT_PRUNING` | `adaptive` | Trims oversized tool outputs from context (not conversation). Modes: `adaptive`, `aggressive`, `cache-ttl`, or `off` |
+
+**Opt-in** (set only if you want to override moltbot defaults):
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `MOLTBOT_CONTEXT_TOKENS` | *(unset)* | Hard cap on context window in tokens (e.g., `100000` for 100K). Prevents sessions from growing to 1M+ tokens |
+| `MOLTBOT_CONTEXT_MESSAGES` | *(unset)* | Max messages kept in session context (e.g., `50`). Limits history the model sees per turn |
+| `MOLTBOT_COMPACTION_MODE` | *(unset)* | Context compaction strategy — `safeguard` for adaptive chunking with progressive fallback and retries |
+| `MOLTBOT_SESSION_IDLE_MINUTES` | *(unset)* | Auto-reset session after N minutes of inactivity (e.g., `120`). Starts a fresh context on next message |
 
 **What these protect against:**
-- **Tool-call infinite loops**: When a model repeatedly makes the same failing tool call (e.g., wrong parameter name), `MAX_TOOL_ERRORS=3` stops it after 3 identical errors instead of 25+.
-- **Context dragging**: Large tool outputs (JSON schemas, logs) get appended to session history and carried forward. Set `CONTEXT_MESSAGES` to cap how much history the model processes per turn.
-- **Cron session bloat**: Cron jobs are configured to run in isolated sessions (fresh context per run) so they don't accumulate history.
-- **Telegram polling storms**: Telegram channel config includes retry backoff (5s base, 2x multiplier, max 10 retries) to prevent tight reconnect loops on transient network errors.
+- **Tool-call infinite loops**: Agent calls the same failing tool 25+ times. `MAX_TOOL_ERRORS=3` stops it after 3.
+- **Context dragging**: A single `config.schema` output (396KB+ JSON) gets carried forward on every turn, burning hundreds of thousands of cached tokens. `CONTEXT_PRUNING=adaptive` trims oversized tool results while preserving conversation.
+- **Context overflow at 1M tokens**: Sessions grow until the model returns "prompt too large" errors. Set `CONTEXT_TOKENS=100000` to cap the window well below the model limit.
+- **Cron session bloat**: Cron jobs run in isolated sessions (fresh context per run) so they don't accumulate history.
+- **Telegram polling storms**: Telegram config includes retry backoff (5s base, 2x multiplier, max 10 retries) to prevent tight reconnect loops.
+- **Stale sessions**: Without `SESSION_IDLE_MINUTES`, a session can accumulate days of history. Setting it to e.g. `120` resets after 2 hours idle.
 
-**Note:** Config and auth profiles are now **merged** on redeploy, not overwritten. Keys configured through the moltbot Control UI will survive container restarts.
+**Note:** Config and auth profiles are **merged** on redeploy, not overwritten. Keys configured through the moltbot Control UI survive container restarts.
 
 ## Architecture
 

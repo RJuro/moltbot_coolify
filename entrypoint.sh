@@ -50,13 +50,17 @@ fi
 echo "Default model: $DEFAULT_MODEL"
 
 # --- Agent safeguard defaults (prevent runaway token usage) ---
-# These are only injected into config when explicitly set via env vars,
-# except maxConsecutiveToolErrors and maxToolCallsPerTurn which have safe defaults.
+# Tool-call loop guards are always on with safe defaults.
+# Context pruning is on by default (trims oversized tool outputs, not conversation).
+# Context token budget and session reset are opt-in.
 MAX_TOOL_ERRORS="${MOLTBOT_MAX_TOOL_ERRORS:-3}"
 MAX_TOOL_CALLS="${MOLTBOT_MAX_TOOL_CALLS:-25}"
-echo "Agent safeguards: maxConsecutiveToolErrors=$MAX_TOOL_ERRORS, maxToolCallsPerTurn=$MAX_TOOL_CALLS"
+CONTEXT_PRUNING="${MOLTBOT_CONTEXT_PRUNING:-adaptive}"
+echo "Agent safeguards: maxConsecutiveToolErrors=$MAX_TOOL_ERRORS, maxToolCallsPerTurn=$MAX_TOOL_CALLS, contextPruning=$CONTEXT_PRUNING"
 [ -n "${MOLTBOT_CONTEXT_MESSAGES:-}" ] && echo "  contextMessages=$MOLTBOT_CONTEXT_MESSAGES"
+[ -n "${MOLTBOT_CONTEXT_TOKENS:-}" ] && echo "  contextTokens=$MOLTBOT_CONTEXT_TOKENS"
 [ -n "${MOLTBOT_COMPACTION_MODE:-}" ] && echo "  compaction=$MOLTBOT_COMPACTION_MODE"
+[ -n "${MOLTBOT_SESSION_IDLE_MINUTES:-}" ] && echo "  session idleMinutes=$MOLTBOT_SESSION_IDLE_MINUTES"
 
 # --- Write gateway config ---
 # Deep-merge entrypoint-managed keys into existing config (preserves UI-configured settings).
@@ -87,7 +91,10 @@ MANAGED_CONFIG=$(cat <<JSONEOF
         "primary": "${DEFAULT_MODEL}"
       },
       "maxConsecutiveToolErrors": ${MAX_TOOL_ERRORS},
-      "maxToolCallsPerTurn": ${MAX_TOOL_CALLS}
+      "maxToolCallsPerTurn": ${MAX_TOOL_CALLS},
+      "contextPruning": {
+        "mode": "${CONTEXT_PRUNING}"
+      }
     }
   },
   "cron": {
@@ -119,9 +126,17 @@ if [ -n "${MOLTBOT_CONTEXT_MESSAGES:-}" ]; then
   MANAGED_CONFIG=$(echo "$MANAGED_CONFIG" | jq --argjson val "$MOLTBOT_CONTEXT_MESSAGES" \
     '.agents.defaults.contextMessages = $val')
 fi
+if [ -n "${MOLTBOT_CONTEXT_TOKENS:-}" ]; then
+  MANAGED_CONFIG=$(echo "$MANAGED_CONFIG" | jq --argjson val "$MOLTBOT_CONTEXT_TOKENS" \
+    '.agents.defaults.contextTokens = $val')
+fi
 if [ -n "${MOLTBOT_COMPACTION_MODE:-}" ]; then
   MANAGED_CONFIG=$(echo "$MANAGED_CONFIG" | jq --arg val "$MOLTBOT_COMPACTION_MODE" \
     '.agents.defaults.compaction.mode = $val')
+fi
+if [ -n "${MOLTBOT_SESSION_IDLE_MINUTES:-}" ]; then
+  MANAGED_CONFIG=$(echo "$MANAGED_CONFIG" | jq --argjson val "$MOLTBOT_SESSION_IDLE_MINUTES" \
+    '.session.reset.idleMinutes = $val')
 fi
 
 # Deep-merge: existing config is the base, entrypoint-managed keys override
