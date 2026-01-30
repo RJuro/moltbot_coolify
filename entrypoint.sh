@@ -59,18 +59,16 @@ elif [ -n "${OPENROUTER_API_KEY:-}" ]; then
 fi
 echo "Default model: $DEFAULT_MODEL"
 
-# --- Agent safeguard defaults (prevent runaway token usage) ---
-# Tool-call loop guards are always on with safe defaults.
-# Context pruning is on by default (trims oversized tool outputs, not conversation).
-# Context token budget and session reset are opt-in.
-MAX_TOOL_ERRORS="${MOLTBOT_MAX_TOOL_ERRORS:-2}"
-MAX_TOOL_CALLS="${MOLTBOT_MAX_TOOL_CALLS:-15}"
-CONTEXT_PRUNING="${MOLTBOT_CONTEXT_PRUNING:-adaptive}"
-echo "Agent safeguards: maxConsecutiveToolErrors=$MAX_TOOL_ERRORS, maxToolCallsPerTurn=$MAX_TOOL_CALLS, contextPruning=$CONTEXT_PRUNING"
-[ -n "${MOLTBOT_CONTEXT_MESSAGES:-}" ] && echo "  contextMessages=$MOLTBOT_CONTEXT_MESSAGES"
-[ -n "${MOLTBOT_CONTEXT_TOKENS:-}" ] && echo "  contextTokens=$MOLTBOT_CONTEXT_TOKENS"
-[ -n "${MOLTBOT_COMPACTION_MODE:-}" ] && echo "  compaction=$MOLTBOT_COMPACTION_MODE"
-[ -n "${MOLTBOT_SESSION_IDLE_MINUTES:-}" ] && echo "  session idleMinutes=$MOLTBOT_SESSION_IDLE_MINUTES"
+# --- Agent safeguards (opt-in) ---
+# Only write optional settings when explicitly provided via env vars.
+if [ -n "${MOLTBOT_CONTEXT_PRUNING:-}" ] || [ -n "${MOLTBOT_CONTEXT_TOKENS:-}" ] || \
+   [ -n "${MOLTBOT_COMPACTION_MODE:-}" ] || [ -n "${MOLTBOT_SESSION_IDLE_MINUTES:-}" ]; then
+  echo "Agent safeguards (opt-in):"
+  [ -n "${MOLTBOT_CONTEXT_PRUNING:-}" ] && echo "  contextPruning=$MOLTBOT_CONTEXT_PRUNING"
+  [ -n "${MOLTBOT_CONTEXT_TOKENS:-}" ] && echo "  contextTokens=$MOLTBOT_CONTEXT_TOKENS"
+  [ -n "${MOLTBOT_COMPACTION_MODE:-}" ] && echo "  compaction=$MOLTBOT_COMPACTION_MODE"
+  [ -n "${MOLTBOT_SESSION_IDLE_MINUTES:-}" ] && echo "  session idleMinutes=$MOLTBOT_SESSION_IDLE_MINUTES"
+fi
 
 # --- Write gateway config ---
 # Deep-merge entrypoint-managed keys into existing config (preserves UI-configured settings).
@@ -99,16 +97,8 @@ MANAGED_CONFIG=$(cat <<JSONEOF
       "workspace": "/home/node/.openclaw/workspace",
       "model": {
         "primary": "${DEFAULT_MODEL}"
-      },
-      "maxConsecutiveToolErrors": ${MAX_TOOL_ERRORS},
-      "maxToolCallsPerTurn": ${MAX_TOOL_CALLS},
-      "contextPruning": {
-        "mode": "${CONTEXT_PRUNING}"
       }
     }
-  },
-  "cron": {
-    "isolated": true
   }
 }
 JSONEOF
@@ -131,14 +121,13 @@ if [ -n "${DISCORD_BOT_TOKEN:-}" ]; then
     '.channels.discord = { "botToken": $token }')
 fi
 
-# Add optional safeguards only when explicitly set via env vars
-if [ -n "${MOLTBOT_CONTEXT_MESSAGES:-}" ]; then
-  MANAGED_CONFIG=$(echo "$MANAGED_CONFIG" | jq --argjson val "$MOLTBOT_CONTEXT_MESSAGES" \
-    '.agents.defaults.contextMessages = $val')
-fi
 if [ -n "${MOLTBOT_CONTEXT_TOKENS:-}" ]; then
   MANAGED_CONFIG=$(echo "$MANAGED_CONFIG" | jq --argjson val "$MOLTBOT_CONTEXT_TOKENS" \
     '.agents.defaults.contextTokens = $val')
+fi
+if [ -n "${MOLTBOT_CONTEXT_PRUNING:-}" ]; then
+  MANAGED_CONFIG=$(echo "$MANAGED_CONFIG" | jq --arg val "$MOLTBOT_CONTEXT_PRUNING" \
+    '.agents.defaults.contextPruning = { "mode": $val }')
 fi
 if [ -n "${MOLTBOT_COMPACTION_MODE:-}" ]; then
   MANAGED_CONFIG=$(echo "$MANAGED_CONFIG" | jq --arg val "$MOLTBOT_COMPACTION_MODE" \
@@ -155,6 +144,18 @@ if [ -f "$CONFIG_FILE" ]; then
   cp "$CONFIG_FILE" "$CONFIG_FILE.bak"
   echo "Backed up existing config to $CONFIG_FILE.bak"
   EXISTING=$(cat "$CONFIG_FILE")
+  # Strip deprecated keys from older entrypoints to avoid config validation failures.
+  CLEANED=$(echo "$EXISTING" | jq 'del(
+    .agents.defaults.maxConsecutiveToolErrors,
+    .agents.defaults.maxToolCallsPerTurn,
+    .agents.defaults.contextMessages,
+    .agents.defaults.contextPruning,
+    .cron.isolated
+  )')
+  if [ $? -eq 0 ] && [ -n "$CLEANED" ]; then
+    EXISTING="$CLEANED"
+    echo "Removed deprecated keys from existing $CONFIG_FILE"
+  fi
   # jq '*' does recursive merge — managed config (right) wins on conflicts
   MERGED=$(echo "$EXISTING" "$MANAGED_CONFIG" | jq -s '.[0] * .[1]')
   if [ $? -eq 0 ] && [ -n "$MERGED" ]; then

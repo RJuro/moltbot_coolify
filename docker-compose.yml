@@ -20,14 +20,10 @@ services:
       # Channel integrations (optional)
       - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN}
       - DISCORD_BOT_TOKEN=${DISCORD_BOT_TOKEN}
-      # Agent safeguards (prevent runaway token usage)
-      # Defaults are handled in entrypoint.sh, not here (Coolify doesn't support :- syntax)
-      - MOLTBOT_MAX_TOOL_ERRORS=${MOLTBOT_MAX_TOOL_ERRORS}
-      - MOLTBOT_MAX_TOOL_CALLS=${MOLTBOT_MAX_TOOL_CALLS}
-      - MOLTBOT_CONTEXT_PRUNING=${MOLTBOT_CONTEXT_PRUNING}
-      # Optional: set these only if you want to override openclaw defaults
+      # Agent safeguards (opt-in)
+      # Optional: set these only if you want to override OpenClaw defaults
       - MOLTBOT_CONTEXT_TOKENS=${MOLTBOT_CONTEXT_TOKENS}
-      - MOLTBOT_CONTEXT_MESSAGES=${MOLTBOT_CONTEXT_MESSAGES}
+      - MOLTBOT_CONTEXT_PRUNING=${MOLTBOT_CONTEXT_PRUNING}
       - MOLTBOT_COMPACTION_MODE=${MOLTBOT_COMPACTION_MODE}
       - MOLTBOT_SESSION_IDLE_MINUTES=${MOLTBOT_SESSION_IDLE_MINUTES}
     volumes:
