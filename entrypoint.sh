@@ -120,17 +120,17 @@ if [ -n "${DISCORD_BOT_TOKEN:-}" ]; then
   MANAGED_CONFIG=$(echo "$MANAGED_CONFIG" | jq --arg token "$DISCORD_BOT_TOKEN" \
     '.channels.discord = { "botToken": $token }')
 fi
-if [ -n "${WHATSAPP_ENABLED:-}" ]; then
+if [ "${WHATSAPP_ENABLED:-}" = "true" ]; then
   MANAGED_CONFIG=$(echo "$MANAGED_CONFIG" | jq \
     '.channels.whatsapp = { "enabled": true }')
 fi
 if [ -n "${SLACK_BOT_TOKEN:-}" ]; then
-  SLACK_CONFIG="{\"botToken\": \"${SLACK_BOT_TOKEN}\"}"
+  MANAGED_CONFIG=$(echo "$MANAGED_CONFIG" | jq --arg token "$SLACK_BOT_TOKEN" \
+    '.channels.slack = { "botToken": $token }')
   if [ -n "${SLACK_APP_TOKEN:-}" ]; then
-    SLACK_CONFIG=$(echo "$SLACK_CONFIG" | jq --arg token "$SLACK_APP_TOKEN" \
-      '. + { "appToken": $token }')
+    MANAGED_CONFIG=$(echo "$MANAGED_CONFIG" | jq --arg token "$SLACK_APP_TOKEN" \
+      '.channels.slack.appToken = $token')
   fi
-  MANAGED_CONFIG=$(echo "$MANAGED_CONFIG" "$SLACK_CONFIG" | jq -s '.[0] * { channels: { slack: .[1] } }')
 fi
 
 if [ -n "${MOLTBOT_CONTEXT_TOKENS:-}" ]; then
@@ -250,7 +250,7 @@ fi
 # --- Log channel tokens ---
 [ -n "${TELEGRAM_BOT_TOKEN:-}" ] && echo "Telegram bot token detected"
 [ -n "${DISCORD_BOT_TOKEN:-}" ] && echo "Discord bot token detected"
-[ -n "${WHATSAPP_ENABLED:-}" ] && echo "WhatsApp enabled (pair via Control UI QR code)"
+[ "${WHATSAPP_ENABLED:-}" = "true" ] && echo "WhatsApp enabled (pair via Control UI QR code)"
 [ -n "${SLACK_BOT_TOKEN:-}" ] && echo "Slack bot token detected"
 
 # --- Start gateway ---
