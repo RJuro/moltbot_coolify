@@ -53,8 +53,8 @@ echo "Default model: $DEFAULT_MODEL"
 # Tool-call loop guards are always on with safe defaults.
 # Context pruning is on by default (trims oversized tool outputs, not conversation).
 # Context token budget and session reset are opt-in.
-MAX_TOOL_ERRORS="${MOLTBOT_MAX_TOOL_ERRORS:-3}"
-MAX_TOOL_CALLS="${MOLTBOT_MAX_TOOL_CALLS:-25}"
+MAX_TOOL_ERRORS="${MOLTBOT_MAX_TOOL_ERRORS:-2}"
+MAX_TOOL_CALLS="${MOLTBOT_MAX_TOOL_CALLS:-15}"
 CONTEXT_PRUNING="${MOLTBOT_CONTEXT_PRUNING:-adaptive}"
 echo "Agent safeguards: maxConsecutiveToolErrors=$MAX_TOOL_ERRORS, maxToolCallsPerTurn=$MAX_TOOL_CALLS, contextPruning=$CONTEXT_PRUNING"
 [ -n "${MOLTBOT_CONTEXT_MESSAGES:-}" ] && echo "  contextMessages=$MOLTBOT_CONTEXT_MESSAGES"

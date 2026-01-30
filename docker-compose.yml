@@ -19,8 +19,8 @@ services:
       - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN:-}
       - DISCORD_BOT_TOKEN=${DISCORD_BOT_TOKEN:-}
       # Agent safeguards (prevent runaway token usage)
-      - MOLTBOT_MAX_TOOL_ERRORS=${MOLTBOT_MAX_TOOL_ERRORS:-3}
-      - MOLTBOT_MAX_TOOL_CALLS=${MOLTBOT_MAX_TOOL_CALLS:-25}
+      - MOLTBOT_MAX_TOOL_ERRORS=${MOLTBOT_MAX_TOOL_ERRORS:-2}
+      - MOLTBOT_MAX_TOOL_CALLS=${MOLTBOT_MAX_TOOL_CALLS:-15}
       - MOLTBOT_CONTEXT_PRUNING=${MOLTBOT_CONTEXT_PRUNING:-adaptive}
       # Optional: set these only if you want to override moltbot defaults
       - MOLTBOT_CONTEXT_TOKENS=${MOLTBOT_CONTEXT_TOKENS:-}

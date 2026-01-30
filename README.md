@@ -52,8 +52,8 @@ These settings prevent runaway API costs from tool-call loops, context bloat, an
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `MOLTBOT_MAX_TOOL_ERRORS` | `3` | Abort after N consecutive identical tool errors (prevents infinite loop burns) |
-| `MOLTBOT_MAX_TOOL_CALLS` | `25` | Max tool invocations per agent turn (hard cap) |
+| `MOLTBOT_MAX_TOOL_ERRORS` | `2` | Abort after N consecutive identical tool errors (prevents infinite loop burns) |
+| `MOLTBOT_MAX_TOOL_CALLS` | `15` | Max tool invocations per agent turn (hard cap with gradual backoff) |
 | `MOLTBOT_CONTEXT_PRUNING` | `adaptive` | Trims oversized tool outputs from context (not conversation). Modes: `adaptive`, `aggressive`, `cache-ttl`, or `off` |
 
 **Opt-in** (set only if you want to override moltbot defaults):
@@ -66,7 +66,7 @@ These settings prevent runaway API costs from tool-call loops, context bloat, an
 | `MOLTBOT_SESSION_IDLE_MINUTES` | *(unset)* | Auto-reset session after N minutes of inactivity (e.g., `120`). Starts a fresh context on next message |
 
 **What these protect against:**
-- **Tool-call infinite loops**: Agent calls the same failing tool 25+ times. `MAX_TOOL_ERRORS=3` stops it after 3.
+- **Tool-call infinite loops**: Agent calls the same failing tool 25+ times. `MAX_TOOL_ERRORS=2` stops it after 2 identical errors — if it didn't work twice, it won't work a third time.
 - **Context dragging**: A single `config.schema` output (396KB+ JSON) gets carried forward on every turn, burning hundreds of thousands of cached tokens. `CONTEXT_PRUNING=adaptive` trims oversized tool results while preserving conversation.
 - **Context overflow at 1M tokens**: Sessions grow until the model returns "prompt too large" errors. Set `CONTEXT_TOKENS=100000` to cap the window well below the model limit.
 - **Cron session bloat**: Cron jobs run in isolated sessions (fresh context per run) so they don't accumulate history.
